@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小店櫥窗 - 修復版</title>
+    <title>我的小店櫥窗</title>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #fdfaf5; padding: 20px; color: #444; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
         .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.08); display: flex; flex-direction: column; }
-        .img-box { width: 100%; height: 160px; background: #eee; display: flex; align-items: center; justify-content: center; }
+        .img-box { width: 100%; height: 160px; background: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         img { width: 100%; height: 100%; object-fit: cover; }
         .info { padding: 12px; text-align: center; }
         .name { font-weight: bold; font-size: 14px; margin-bottom: 5px; height: 40px; overflow: hidden; }
         .price { color: #e67e22; font-weight: bold; }
-        .debug-url { font-size: 9px; color: #ccc; word-break: break-all; padding: 5px; }
     </style>
 </head>
 <body>
@@ -23,32 +22,34 @@
 <div id="shop-content" class="grid"></div>
 
 <script>
+    // ⚠️ 根據你提供嘅真實資料修正
     const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
-    const APP_ID = 'e90e882a-4485-4935-9597-5416ab5b3230';
+    const APP_ID = 'GoogleSheets範例與建議-594648220'; 
     const TABLE_NAME = 'Google Sheets 範例與建議';
 
     function getImgUrl(cellData) {
         if (!cellData) return '';
         let str = cellData.toString();
         
-        // 1. 強力切割：將所有可能嘅分隔符 (逗號、空格、換行) 都拆開
-        let parts = str.split(/[, \n\r]+/);
-        let firstLink = parts.find(p => p.trim().length > 0).trim();
+        // 1. 處理「一格兩相」：只攞第一舊嘢
+        let firstPart = str.split(/[, \n\r]+/)[0].trim();
 
-        // 2. 判斷是否為 Google Drive 連結
-        if (firstLink.includes('drive.google.com')) {
-            let id = "";
-            let matches = firstLink.match(/[-\w]{25,}/); // 用正則表達式精準提取 25 位以上的 ID
-            if (matches) id = matches[0];
+        // 2. 如果入面已經係一條完整嘅 AppSheet URL，我哋要提取 fileName 部分
+        if (firstPart.includes('fileName=')) {
+            firstPart = firstPart.split('fileName=')[1].split('&')[0];
+            // 解碼網址字元
+            firstPart = decodeURIComponent(firstPart);
+        }
+
+        // 3. 判斷係咪 Google Drive
+        if (firstPart.includes('drive.google.com')) {
+            let matches = firstPart.match(/[-\w]{25,}/);
+            let id = matches ? matches[0] : "";
             return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w600';
         }
         
-        // 3. 判斷是否為 AppSheet 內建路徑 (通常不含 http)
-        if (!firstLink.includes('http')) {
-            return 'https://www.appsheet.com/template/gettablefileurl?appName=' + APP_ID + '&tableName=' + encodeURIComponent(TABLE_NAME) + '&fileName=' + encodeURIComponent(firstLink);
-        }
-
-        return firstLink;
+        // 4. 使用官方格式拼湊網址 (必須 encodeURIComponent 處理中文空格)
+        return 'https://www.appsheet.com/template/gettablefileurl?appName=' + APP_ID + '&tableName=' + encodeURIComponent(TABLE_NAME) + '&fileName=' + encodeURIComponent(firstPart);
     }
 
     async function loadShop() {
