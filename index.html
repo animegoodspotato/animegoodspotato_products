@@ -3,27 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的小店</title>
+    <title>我的小店櫥窗</title>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #fdfaf5; margin: 0; padding: 20px; color: #444; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        h1 { text-align: center; color: #6a8caf; margin-bottom: 30px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
         .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.08); display: flex; flex-direction: column; }
-        .img-box { width: 100%; height: 160px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
-        img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s; }
+        .img-box { width: 100%; height: 160px; background: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        img { width: 100%; height: 100%; object-fit: cover; }
         .info { padding: 12px; text-align: center; }
-        .name { font-weight: bold; font-size: 14px; margin-bottom: 5px; height: 40px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; }
-        .price { color: #e67e22; font-weight: bold; font-size: 16px; }
+        .name { font-weight: bold; font-size: 14px; margin-bottom: 5px; height: 40px; overflow: hidden; line-height: 1.4; }
+        .price { color: #e67e22; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>✨ 歡迎光臨 ✨</h1>
-    <div id="loading" style="text-align:center; padding:50px; color:#999;">🚚 貨品運送中...</div>
-    <div id="shop-content" class="grid"></div>
-</div>
+<h1 style="text-align:center; color:#6a8caf;">✨ 歡迎光臨 ✨</h1>
+<div id="loading" style="text-align:center; padding:50px;">🔍 貨品上架中...</div>
+<div id="shop-content" class="grid"></div>
 
 <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
@@ -31,58 +27,46 @@
     const TABLE_NAME = 'Google Sheets 範例與建議';
 
     function getImgUrl(cellData) {
-        if (!cellData) return 'https://via.placeholder.com/160?text=No+Image';
-        var str = cellData.toString();
+        if (!cellData) return '';
+        let str = cellData.toString();
 
-        // ✂️ 自動切割：如果有逗號 (多張相)，只取第一張
-        if (str.indexOf(',') > -1) {
-            str = str.split(',')[0].trim();
+        // 處理多張相片，只取第一張
+        if (str.includes(',')) str = str.split(',')[0].trim();
+
+        // 處理 Google Drive
+        if (str.includes('drive.google.com')) {
+            let id = "";
+            if (str.includes('id=')) id = str.split('id=')[1].split('&')[0];
+            else if (str.includes('/d/')) id = str.split('/d/')[1].split('/')[0];
+            // 必須使用 HTTPS 
+            return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w600';
         }
 
-        // ☁️ 處理 Google Drive
-        if (str.indexOf('drive.google.com') > -1) {
-            var fileId = "";
-            try {
-                if (str.indexOf('id=') > -1) {
-                    fileId = str.split('id=')[1].split('&')[0];
-                } else if (str.indexOf('/d/') > -1) {
-                    fileId = str.split('/d/')[1].split('/')[0];
-                }
-                // 使用 thumbnail 直連，最穩定
-                return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w600';
-            } catch(e) { return str; }
-        }
-
-        // 📱 處理 AppSheet
+        // 處理 AppSheet 路徑 (確保是 HTTPS)
         return 'https://www.appsheet.com/template/gettablefileurl?appName=' + APP_ID + '&tableName=' + encodeURIComponent(TABLE_NAME) + '&fileName=' + encodeURIComponent(str);
     }
 
-    async function loadShop() {
-        try {
-            const response = await fetch(API_URL);
-            const data = await response.json();
-            document.getElementById('loading').style.display = 'none';
-            var content = document.getElementById('shop-content');
-
-            data.forEach(function(item) {
-                var finalUrl = getImgUrl(item['相片 1']);
-                var card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = 
-                    '<div class="img-box">' +
-                        '<img src="' + finalUrl + '" onerror="this.src=\'https://via.placeholder.com/160?text=圖片載入中\';">' +
-                    '</div>' +
-                    '<div class="info">' +
-                        '<div class="name">' + (item['貨品名稱'] || '未命名') + '</div>' +
-                        '<div class="price">MOP ' + (item['價錢 (MOP)'] || '0') + '</div>' +
-                    '</div>';
-                content.appendChild(card);
-            });
-        } catch (e) {
-            document.getElementById('loading').innerText = '載入失敗，請刷新頁面。';
-        }
-    }
-    loadShop();
+    fetch(API_URL)
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('loading').style.display = 'none';
+        const content = document.getElementById('shop-content');
+        data.forEach(item => {
+            const imgUrl = getImgUrl(item['相片 1']);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="img-box">
+                    <img src="${imgUrl}" onerror="this.src='https://placehold.jp/24/cccccc/ffffff/160x160.png?text=Loading...';">
+                </div>
+                <div class="info">
+                    <div class="name">${item['貨品名稱'] || '未命名'}</div>
+                    <div class="price">MOP ${item['價錢 (MOP)'] || '0'}</div>
+                </div>
+            `;
+            content.appendChild(card);
+        });
+    });
 </script>
 </body>
 </html>
