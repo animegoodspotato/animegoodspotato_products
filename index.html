@@ -3,81 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的小店櫥窗</title>
+    <title>小店櫥窗 - 修復版</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #fdfaf5; margin: 0; padding: 20px; color: #444; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #fdfaf5; padding: 20px; color: #444; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
         .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.08); display: flex; flex-direction: column; }
-        /* 圖片位加個灰色底色同 Loading 文字 */
-        .img-box { width: 100%; height: 160px; background: #eeeeee; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #999; font-size: 12px; }
+        .img-box { width: 100%; height: 160px; background: #eee; display: flex; align-items: center; justify-content: center; }
         img { width: 100%; height: 100%; object-fit: cover; }
         .info { padding: 12px; text-align: center; }
-        .name { font-weight: bold; font-size: 14px; margin-bottom: 5px; height: 40px; overflow: hidden; line-height: 1.4; }
+        .name { font-weight: bold; font-size: 14px; margin-bottom: 5px; height: 40px; overflow: hidden; }
         .price { color: #e67e22; font-weight: bold; }
+        .debug-url { font-size: 9px; color: #ccc; word-break: break-all; padding: 5px; }
     </style>
 </head>
 <body>
 
-<h1 style="text-align:center; color:#6a8caf;">✨ 歡迎光臨 ✨</h1>
-<div id="loading" style="text-align:center; padding:50px;">🔍 貨品努力上架中...</div>
+<h1 style="text-align:center; color:#6a8caf;">✨ 貨品櫥窗 ✨</h1>
+<div id="loading" style="text-align:center; padding:50px;">正在讀取資料...</div>
 <div id="shop-content" class="grid"></div>
 
 <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
-    
-    // 內建一張 SVG 圖片，唔使再連去 placeholder 網站，解決 ERR_NAME_NOT_RESOLVED
-    const LOADING_SVG = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjE2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZWVlZWVlIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiM5OTkiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRpPS"';
+    const APP_ID = 'e90e882a-4485-4935-9597-5416ab5b3230';
+    const TABLE_NAME = 'Google Sheets 範例與建議';
 
     function getImgUrl(cellData) {
         if (!cellData) return '';
         let str = cellData.toString();
+        
+        // 1. 強力切割：將所有可能嘅分隔符 (逗號、空格、換行) 都拆開
+        let parts = str.split(/[, \n\r]+/);
+        let firstLink = parts.find(p => p.trim().length > 0).trim();
 
-        // ✂️ 先解決「兩張相」嘅問題：用逗號、分號或者空格切開，只攞第一舊嘢
-        let firstPart = str.split(/[,;\s]+/)[0].trim();
-
-        // ☁️ 處理 Google Drive 連結，提取 ID
-        let fileId = "";
-        if (firstPart.includes('id=')) {
-            fileId = firstPart.split('id=')[1].split('&')[0];
-        } else if (firstPart.includes('/d/')) {
-            fileId = firstPart.split('/d/')[1].split('/')[0];
-        }
-
-        if (fileId) {
-            // 使用目前 GitHub Pages 最穩定嘅 HTTPS 縮圖格式
-            return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+        // 2. 判斷是否為 Google Drive 連結
+        if (firstLink.includes('drive.google.com')) {
+            let id = "";
+            let matches = firstLink.match(/[-\w]{25,}/); // 用正則表達式精準提取 25 位以上的 ID
+            if (matches) id = matches[0];
+            return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w600';
         }
         
-        // 如果係普通檔案名 (AppSheet 影嘅相)
-        const APP_ID = 'e90e882a-4485-4935-9597-5416ab5b3230';
-        const TABLE_NAME = 'Google Sheets 範例與建議';
-        return 'https://www.appsheet.com/template/gettablefileurl?appName=' + APP_ID + '&tableName=' + encodeURIComponent(TABLE_NAME) + '&fileName=' + encodeURIComponent(firstPart);
+        // 3. 判斷是否為 AppSheet 內建路徑 (通常不含 http)
+        if (!firstLink.includes('http')) {
+            return 'https://www.appsheet.com/template/gettablefileurl?appName=' + APP_ID + '&tableName=' + encodeURIComponent(TABLE_NAME) + '&fileName=' + encodeURIComponent(firstLink);
+        }
+
+        return firstLink;
     }
 
-    fetch(API_URL)
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('loading').style.display = 'none';
-        const content = document.getElementById('shop-content');
-        data.forEach(item => {
-            const imgUrl = getImgUrl(item['相片 1']);
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-                <div class="img-box">
-                    <img src="${imgUrl}" loading="lazy" onerror="this.parentElement.innerHTML='無圖片';">
-                </div>
-                <div class="info">
-                    <div class="name">${item['貨品名稱'] || '未命名'}</div>
-                    <div class="price">MOP ${item['價錢 (MOP)'] || '0'}</div>
-                </div>
-            `;
-            content.appendChild(card);
-        });
-    })
-    .catch(err => {
-        document.getElementById('loading').innerText = '載入失敗，請確認網絡連線。';
-    });
+    async function loadShop() {
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            document.getElementById('loading').style.display = 'none';
+            const content = document.getElementById('shop-content');
+
+            data.forEach(item => {
+                const imgUrl = getImgUrl(item['相片 1']);
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="img-box">
+                        <img src="${imgUrl}" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mN8/x8AAwMCAO+jnSAAAAAASUVORK5CYII=';">
+                    </div>
+                    <div class="info">
+                        <div class="name">${item['貨品名稱'] || '未命名'}</div>
+                        <div class="price">MOP ${item['價錢 (MOP)'] || '0'}</div>
+                    </div>
+                `;
+                content.appendChild(card);
+            });
+        } catch (e) {
+            document.getElementById('loading').innerText = '載入失敗';
+        }
+    }
+    loadShop();
 </script>
 </body>
 </html>
