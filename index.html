@@ -153,7 +153,8 @@
         data.forEach(item => {
           // 兼容「相片1」同「相片 1」
           const imgCell = item['相片1'] ?? item['相片 1'] ?? item['相片 1 '] ?? item['相片 1　'];
-          const finalUrl = getImgUrl(imgCell);
+         const finalUrl = item['相片1_網址'] || 'https://via.placeholder.com/600?text=No+Image';
+
 
           const name = item['貨品名稱'] ?? '未命名';
           const price = item['價錢 (MOP)'] ?? item['價錢(MOP)'] ?? item['價錢'] ?? '0';
