@@ -2,60 +2,45 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小店櫥窗 - 修復版</title>
+    <title>欄位診斷工具</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #fdfaf5; padding: 20px; color: #444; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
-        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.08); position: relative; }
-        .img-box { width: 100%; height: 160px; background: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        img { width: 100%; height: 100%; object-fit: cover; }
-        .info { padding: 12px; text-align: center; }
-        .price { color: #e67e22; font-weight: bold; }
-        .debug-btn { font-size: 10px; color: #999; text-decoration: underline; cursor: pointer; margin-top: 5px; display: block; }
+        body { font-family: monospace; padding: 20px; line-height: 1.6; }
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+        .box { background: #eee; padding: 10px; border: 1px solid #ccc; margin-top: 10px; }
     </style>
 </head>
 <body>
+    <h2>📊 數據庫欄位檢查報告</h2>
+    <div id="status">正在讀取 Google Sheet...</div>
+    <div id="results" class="box"></div>
 
-<h1 style="text-align:center; color:#6a8caf;">✨ 貨品櫥窗 ✨</h1>
-<div id="shop-content" class="grid"></div>
+    <script>
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
 
-<script>
-    // ⚠️ 根據你條 Link 嘅真實參數
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
-    const APP_ID = 'GoogleSheets範例與建議-594648220'; 
-    const TABLE_NAME = 'Google Sheets 範例與建議';
-
-    function getImgUrl(cellData) {
-        if (!cellData) return '';
-        // 攞第一張相並清理空格
-        let fileName = cellData.toString().split(',')[0].trim();
-        
-        // 拼湊 AppSheet 專用的對外網址
-        return `https://www.appsheet.com/template/gettablefileurl?appName=${encodeURIComponent(APP_ID)}&tableName=${encodeURIComponent(TABLE_NAME)}&fileName=${encodeURIComponent(fileName)}`;
-    }
-
-    fetch(API_URL)
-    .then(r => r.json())
-    .then(data => {
-        const content = document.getElementById('shop-content');
-        data.forEach(item => {
-            const imgUrl = getImgUrl(item['相片 1']);
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-                <div class="img-box">
-                    <img src="${imgUrl}" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mN8/x8AAwMCAO+jnSAAAAAASUVORK5CYII=';">
-                </div>
-                <div class="info">
-                    <strong>${item['貨品名稱'] || '未命名'}</strong><br>
-                    <span class="price">MOP ${item['價錢 (MOP)'] || '0'}</span>
-                    <span class="debug-btn" onclick="alert('${imgUrl}')">查看此相片網址</span>
-                </div>
-            `;
-            content.appendChild(card);
+        fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('status').innerHTML = '<span class="success">✅ 成功連線！</span>';
+            const results = document.getElementById('results');
+            
+            if (data.length > 0) {
+                // 攞出第一行貨品嘅所有 Key (欄位名)
+                const keys = Object.keys(data[0]);
+                results.innerHTML = '<strong>我喺你個 Sheet 搵到以下欄位：</strong><br><ul>';
+                keys.forEach(k => {
+                    results.innerHTML += `<li>"${k}" (長度: ${k.length})</li>`;
+                });
+                results.innerHTML += '</ul>';
+                results.innerHTML += '<p>請檢查入面有冇一個叫 <strong>"相片 1"</strong> (有空格)？定係 <strong>"相片1"</strong> (冇空格)？</p>';
+                results.innerHTML += '<hr><strong>第一件貨嘅原始數據：</strong><br>' + JSON.stringify(data[0]);
+            } else {
+                results.innerHTML = '<span class="error">Sheet 入面好似冇數據。</span>';
+            }
+        })
+        .catch(err => {
+            document.getElementById('status').innerHTML = '<span class="error">❌ 連線失敗：' + err + '</span>';
         });
-    });
-</script>
+    </script>
 </body>
 </html>
