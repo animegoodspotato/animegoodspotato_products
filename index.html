@@ -1,46 +1,38 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-    <meta charset="UTF-8">
-    <title>欄位診斷工具</title>
-    <style>
-        body { font-family: monospace; padding: 20px; line-height: 1.6; }
-        .error { color: red; font-weight: bold; }
-        .success { color: green; font-weight: bold; }
-        .box { background: #eee; padding: 10px; border: 1px solid #ccc; margin-top: 10px; }
-    </style>
-</head>
-<body>
-    <h2>📊 數據庫欄位檢查報告</h2>
-    <div id="status">正在讀取 Google Sheet...</div>
-    <div id="results" class="box"></div>
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
 
-    <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
+const APP_NAME = 'GoogleSheets範例與建議-594648220';
+const TABLE_NAME = 'Google Sheets 範例與建議';
 
-        fetch(API_URL)
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('status').innerHTML = '<span class="success">✅ 成功連線！</span>';
-            const results = document.getElementById('results');
-            
-            if (data.length > 0) {
-                // 攞出第一行貨品嘅所有 Key (欄位名)
-                const keys = Object.keys(data[0]);
-                results.innerHTML = '<strong>我喺你個 Sheet 搵到以下欄位：</strong><br><ul>';
-                keys.forEach(k => {
-                    results.innerHTML += `<li>"${k}" (長度: ${k.length})</li>`;
-                });
-                results.innerHTML += '</ul>';
-                results.innerHTML += '<p>請檢查入面有冇一個叫 <strong>"相片 1"</strong> (有空格)？定係 <strong>"相片1"</strong> (冇空格)？</p>';
-                results.innerHTML += '<hr><strong>第一件貨嘅原始數據：</strong><br>' + JSON.stringify(data[0]);
-            } else {
-                results.innerHTML = '<span class="error">Sheet 入面好似冇數據。</span>';
+function getImgUrl(cellData) {
+    if (!cellData) return 'https://via.placeholder.com/600?text=No+Image';
+
+    let str = cellData.toString().trim();
+
+    // 多張相只取第一張
+    if (str.includes(',')) str = str.split(',')[0].trim();
+
+    // 🔥 如果係 AppSheet 臨時圖片網址（帶 signature）
+    if (str.includes('appsheet.com/image/getimageurl')) {
+        try {
+            const urlObj = new URL(str);
+            const fileName = urlObj.searchParams.get('fileName');
+
+            if (fileName) {
+                return 'https://www.appsheet.com/template/gettablefileurl'
+                    + '?appName=' + encodeURIComponent(APP_NAME)
+                    + '&tableName=' + encodeURIComponent(TABLE_NAME)
+                    + '&fileName=' + encodeURIComponent(fileName);
             }
-        })
-        .catch(err => {
-            document.getElementById('status').innerHTML = '<span class="error">❌ 連線失敗：' + err + '</span>';
-        });
-    </script>
-</body>
-</html>
+        } catch (e) {
+            return str;
+        }
+    }
+
+    // 如果已經係完整網址（例如 Drive）
+    return str;
+}
+
+async function loadShop() {
+    try {
+        const r
