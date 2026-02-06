@@ -1,38 +1,198 @@
-<script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的小店</title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      background: #fdfaf5;
+      margin: 0;
+      padding: 20px;
+      color: #444;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    h1 { text-align: center; color: #6a8caf; margin-bottom: 30px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 15px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+    }
+    .img-box {
+      width: 100%;
+      height: 160px;
+      background: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity 0.3s;
+      display: block;
+    }
+    .info { padding: 12px; text-align: center; }
+    .name {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 5px;
+      height: 40px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.4;
+    }
+    .price { color: #e67e22; font-weight: bold; font-size: 16px; }
+    .small { font-size: 12px; color: #888; margin-top: 6px; }
+    .errorBox{
+      max-width:1000px;margin:12px auto 0;
+      padding:10px 12px;border:1px solid #f3c5c5;background:#fff6f6;color:#b00020;
+      border-radius:10px;display:none;white-space:pre-wrap;
+    }
+  </style>
+</head>
 
-const APP_NAME = 'GoogleSheets範例與建議-594648220';
-const TABLE_NAME = 'Google Sheets 範例與建議';
+<body>
+  <div class="container">
+    <h1>✨ 歡迎光臨 ✨</h1>
 
-function getImgUrl(cellData) {
-    if (!cellData) return 'https://via.placeholder.com/600?text=No+Image';
+    <div id="loading" style="text-align:center; padding:50px; color:#999;">
+      🚚 貨品運送中...
+    </div>
 
-    let str = cellData.toString().trim();
+    <div id="errorBox" class="errorBox"></div>
 
-    // 多張相只取第一張
-    if (str.includes(',')) str = str.split(',')[0].trim();
+    <div id="shop-content" class="grid"></div>
+  </div>
 
-    // 🔥 如果係 AppSheet 臨時圖片網址（帶 signature）
-    if (str.includes('appsheet.com/image/getimageurl')) {
-        try {
-            const urlObj = new URL(str);
-            const fileName = urlObj.searchParams.get('fileName');
+  <script>
+    // ====== 1) 你的 Apps Script API（讀 Google Sheet）======
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzv6LyBK2hRBmz4H6t0qk3FLX946QxhILyL1Ni6DQM1b9_9OhZjBHP2_1U_dJMaRkv5/exec';
 
-            if (fileName) {
-                return 'https://www.appsheet.com/template/gettablefileurl'
-                    + '?appName=' + encodeURIComponent(APP_NAME)
-                    + '&tableName=' + encodeURIComponent(TABLE_NAME)
-                    + '&fileName=' + encodeURIComponent(fileName);
-            }
-        } catch (e) {
-            return str;
-        }
+    // ====== 2) 你的 AppSheet 資訊（你已提供）======
+    const APP_NAME  = 'GoogleSheets範例與建議-594648220';
+    const TABLE_NAME = 'Google Sheets 範例與建議';
+
+    // ====== 小工具：顯示錯誤 ======
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.style.display = 'block';
+      box.textContent = msg;
     }
 
-    // 如果已經係完整網址（例如 Drive）
-    return str;
-}
+    // ====== 3) 將相片欄位轉成「穩定」圖片 URL ======
+    function getImgUrl(cellData) {
+      if (!cellData) return 'https://via.placeholder.com/600?text=No+Image';
 
-async function loadShop() {
-    try {
-        const r
+      let str = cellData.toString().trim();
+
+      // 多張相只取第一張
+      if (str.includes(',')) str = str.split(',')[0].trim();
+
+      // B 情況：AppSheet 臨時網址（帶 signature）→ 轉穩定網址
+      if (str.includes('appsheet.com/image/getimageurl')) {
+        try {
+          const u = new URL(str);
+          const fileName = u.searchParams.get('fileName');
+          if (fileName) {
+            return 'https://www.appsheet.com/template/gettablefileurl'
+              + '?appName=' + encodeURIComponent(APP_NAME)
+              + '&tableName=' + encodeURIComponent(TABLE_NAME)
+              + '&fileName=' + encodeURIComponent(fileName);
+          }
+        } catch (e) {
+          // 解析失敗就照原樣
+          return str;
+        }
+      }
+
+      // 如果已經係 http(s) URL，就直接用（例如你將來換 Drive thumbnail）
+      if (str.startsWith('http://') || str.startsWith('https://')) return str;
+
+      // 其他情況：先當無圖
+      return 'https://via.placeholder.com/600?text=No+Image';
+    }
+
+    // ====== 4) 主程式：載入商品 ======
+    async function loadShop() {
+      const loadingEl = document.getElementById('loading');
+      const content = document.getElementById('shop-content');
+
+      try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error('API HTTP ' + res.status);
+
+        const raw = await res.json();
+
+        // 防呆：有些 API 會包一層 {data: [...]}
+        const data = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.data) ? raw.data : null);
+        if (!data) throw new Error('API 回傳格式唔係陣列，請檢查 Apps Script 回傳 JSON');
+
+        loadingEl.style.display = 'none';
+        content.innerHTML = '';
+
+        if (data.length === 0) {
+          showError('Sheet 暫時冇資料（data.length = 0）。');
+          return;
+        }
+
+        data.forEach(item => {
+          // 兼容「相片1」同「相片 1」
+          const imgCell = item['相片1'] ?? item['相片 1'] ?? item['相片 1 '] ?? item['相片 1　'];
+          const finalUrl = getImgUrl(imgCell);
+
+          const name = item['貨品名稱'] ?? '未命名';
+          const price = item['價錢 (MOP)'] ?? item['價錢(MOP)'] ?? item['價錢'] ?? '0';
+
+          const card = document.createElement('div');
+          card.className = 'card';
+
+          card.innerHTML =
+            '<div class="img-box">' +
+              '<img src="' + finalUrl + '" alt="商品圖" ' +
+              'onerror="this.onerror=null;this.src=\'https://via.placeholder.com/600?text=圖片載入失敗\';">' +
+            '</div>' +
+            '<div class="info">' +
+              '<div class="name">' + escapeHtml(name) + '</div>' +
+              '<div class="price">MOP ' + escapeHtml(String(price)) + '</div>' +
+              '<div class="small">（自動從 Sheet 更新）</div>' +
+            '</div>';
+
+          content.appendChild(card);
+        });
+
+      } catch (e) {
+        loadingEl.style.display = 'none';
+        showError('載入失敗：' + (e && e.message ? e.message : e));
+        console.error(e);
+      }
+    }
+
+    // 防 XSS / 亂碼（保險）
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    loadShop();
+  </script>
+</body>
+</html>
